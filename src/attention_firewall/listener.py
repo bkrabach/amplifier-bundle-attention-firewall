@@ -259,7 +259,11 @@ class WindowsNotificationListener:
             logger.error(f"Error processing notification: {e}")
     
     async def start(self) -> None:
-        """Start listening for notifications."""
+        """Start listening for notifications via polling.
+        
+        Note: Event-based listening (add_notification_changed) only works for UWP apps.
+        For regular Python apps, we use polling instead.
+        """
         if self._running:
             return
         
@@ -273,18 +277,54 @@ class WindowsNotificationListener:
             if not granted:
                 raise PermissionError("Notification access not granted")
         
-        # Register for notification changes - handle both API styles
-        if hasattr(self._listener, "add_NotificationChanged"):
-            self._listener.add_NotificationChanged(self._on_notification_changed)
-        else:
-            self._listener.add_notification_changed(self._on_notification_changed)
         self._running = True
-        logger.info("Windows notification listener started")
+        self._seen_ids: set[str] = set()
+        
+        # Start polling task
+        self._poll_task = asyncio.create_task(self._poll_notifications())
+        logger.info("Windows notification listener started (polling mode)")
+    
+    async def _poll_notifications(self, interval: float = 1.0) -> None:
+        """Poll for new notifications periodically."""
+        from winrt.windows.ui.notifications import NotificationKinds
+        
+        while self._running:
+            try:
+                # Get current notifications
+                toast_kind = NotificationKinds.TOAST
+                notifications = await self._listener.get_notifications_async(toast_kind)
+                
+                for notif in notifications:
+                    notif_id = str(notif.id) if hasattr(notif, "id") else str(id(notif))
+                    
+                    # Only process new notifications
+                    if notif_id not in self._seen_ids:
+                        self._seen_ids.add(notif_id)
+                        data = self._extract_notification_data(notif)
+                        if data:
+                            logger.debug(f"New notification: {data.app_id} - {data.title}")
+                            await self.queue.put(data)
+                
+                # Prune seen_ids to prevent memory growth (keep last 1000)
+                if len(self._seen_ids) > 1000:
+                    # Keep only IDs still in notification center
+                    current_ids = {str(n.id) if hasattr(n, "id") else str(id(n)) for n in notifications}
+                    self._seen_ids = self._seen_ids & current_ids
+                    
+            except Exception as e:
+                logger.error(f"Error polling notifications: {e}")
+            
+            await asyncio.sleep(interval)
     
     async def stop(self) -> None:
         """Stop listening for notifications."""
         self._running = False
-        # Note: pywinrt doesn't have a clean way to remove handlers
+        if hasattr(self, "_poll_task") and self._poll_task:
+            self._poll_task.cancel()
+            try:
+                await self._poll_task
+            except asyncio.CancelledError:
+                pass
         logger.info("Windows notification listener stopped")
     
     async def get_current_notifications(self) -> list[NotificationData]:
