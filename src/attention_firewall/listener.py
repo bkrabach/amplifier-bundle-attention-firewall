@@ -113,8 +113,20 @@ class WindowsNotificationListener:
         UserNotificationListener = self._winrt["UserNotificationListener"]
         AccessStatus = self._winrt["UserNotificationListenerAccessStatus"]
         
-        self._listener = UserNotificationListener.get_current()
-        status = await self._listener.request_access_async()
+        # pywinrt API: static methods may be GetCurrent() or get_current()
+        if hasattr(UserNotificationListener, "GetCurrent"):
+            self._listener = UserNotificationListener.GetCurrent()
+        elif hasattr(UserNotificationListener, "get_current"):
+            self._listener = UserNotificationListener.get_current()
+        else:
+            # Try accessing as a property
+            self._listener = UserNotificationListener.Current
+        
+        # Request access - may be RequestAccessAsync or request_access_async
+        if hasattr(self._listener, "RequestAccessAsync"):
+            status = await self._listener.RequestAccessAsync()
+        else:
+            status = await self._listener.request_access_async()
         
         if status == AccessStatus.ALLOWED:
             logger.info("Notification access granted")
@@ -141,14 +153,27 @@ class WindowsNotificationListener:
             body = ""
             
             try:
-                binding = notif.notification.visual.get_binding(
-                    KnownBindings.get_toast_generic()
-                )
+                # Handle both API styles: get_binding/GetBinding, get_toast_generic/ToastGeneric
+            toast_generic = (
+                KnownBindings.ToastGeneric if hasattr(KnownBindings, "ToastGeneric")
+                else KnownBindings.get_toast_generic()
+            )
+            if hasattr(notif.notification.visual, "GetBinding"):
+                binding = notif.notification.visual.GetBinding(toast_generic)
+            else:
+                binding = notif.notification.visual.get_binding(toast_generic)
                 if binding:
-                    texts = list(binding.get_text_elements())
+                    # Handle both API styles
+                    if hasattr(binding, "GetTextElements"):
+                        texts = list(binding.GetTextElements())
+                    else:
+                        texts = list(binding.get_text_elements())
                     if texts:
-                        title = texts[0].text if texts else ""
-                        body = " ".join(t.text for t in texts[1:]) if len(texts) > 1 else ""
+                        # Text property might be Text or text
+                        def get_text(t):
+                            return t.Text if hasattr(t, "Text") else t.text
+                        title = get_text(texts[0]) if texts else ""
+                        body = " ".join(get_text(t) for t in texts[1:]) if len(texts) > 1 else ""
             except Exception as e:
                 logger.debug(f"Could not extract text: {e}")
             
@@ -217,8 +242,12 @@ class WindowsNotificationListener:
                 # We only care about new notifications, not removals
                 pass
             
-            # Get the notification
-            notif = self._listener.get_notification(args.user_notification_id)
+            # Get the notification - handle both API styles
+            notif_id = args.UserNotificationId if hasattr(args, "UserNotificationId") else args.user_notification_id
+            if hasattr(self._listener, "GetNotification"):
+                notif = self._listener.GetNotification(notif_id)
+            else:
+                notif = self._listener.get_notification(notif_id)
             if notif is None:
                 return
             
@@ -253,8 +282,11 @@ class WindowsNotificationListener:
             if not granted:
                 raise PermissionError("Notification access not granted")
         
-        # Register for notification changes
-        self._listener.add_notification_changed(self._on_notification_changed)
+        # Register for notification changes - handle both API styles
+        if hasattr(self._listener, "add_NotificationChanged"):
+            self._listener.add_NotificationChanged(self._on_notification_changed)
+        else:
+            self._listener.add_notification_changed(self._on_notification_changed)
         self._running = True
         logger.info("Windows notification listener started")
     
@@ -272,9 +304,12 @@ class WindowsNotificationListener:
         try:
             from winrt.windows.ui.notifications import NotificationKinds
             
-            notifications = await self._listener.get_notifications_async(
-                NotificationKinds.TOAST
-            )
+            # Handle both API styles
+            toast_kind = NotificationKinds.Toast if hasattr(NotificationKinds, "Toast") else NotificationKinds.TOAST
+            if hasattr(self._listener, "GetNotificationsAsync"):
+                notifications = await self._listener.GetNotificationsAsync(toast_kind)
+            else:
+                notifications = await self._listener.get_notifications_async(toast_kind)
             
             result = []
             for notif in notifications:
