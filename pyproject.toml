@@ -1,0 +1,62 @@
+[project]
+name = "attention-firewall"
+version = "0.1.0"
+description = "AI-powered Windows notification controller using Amplifier"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [
+    { name = "Brian Krabach" }
+]
+
+dependencies = [
+    # Windows notification APIs (Windows-only)
+    "winrt-Windows.UI.Notifications",
+    "winrt-Windows.UI.Notifications.Management",
+    "winrt-Windows.Foundation",
+    
+    # Amplifier
+    "amplifier-core @ git+https://github.com/microsoft/amplifier-core",
+    "amplifier-foundation @ git+https://github.com/microsoft/amplifier-foundation",
+    
+    # Scheduling
+    "apscheduler>=3.10",
+    
+    # Async support
+    "anyio>=4.0",
+    
+    # Configuration
+    "pyyaml>=6.0",
+    
+    # CLI
+    "click>=8.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+    "ruff>=0.1.0",
+    "pyright>=1.1.0",
+]
+
+[project.scripts]
+attention-firewall = "attention_firewall.main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/attention_firewall"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "C4"]
+
+[tool.pyright]
+pythonVersion = "3.11"
+typeCheckingMode = "basic"

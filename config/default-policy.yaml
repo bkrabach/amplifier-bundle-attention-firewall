@@ -1,0 +1,83 @@
+# Attention Firewall - Default Policy Configuration
+# This file defines the default filtering rules for notifications
+
+apps:
+  # Microsoft Teams - evaluate each notification
+  Microsoft Teams:
+    ingest: true
+    default_action: evaluate  # Let agent decide
+    priority_senders: []      # Add VIP senders specific to Teams
+    
+  # WhatsApp - batch by default, too noisy
+  WhatsApp:
+    ingest: true
+    default_action: summarize  # Batch for digest
+    priority_senders: []
+    
+  # Outlook - evaluate with keyword escalation
+  Microsoft Outlook:
+    ingest: true
+    default_action: evaluate
+    escalate_keywords:
+      - "deadline"
+      - "urgent"
+      - "by EOD"
+      - "ASAP"
+      - "action required"
+
+  # Slack - if present
+  Slack:
+    ingest: true
+    default_action: evaluate
+
+# Global settings apply across all apps
+global:
+  # VIP senders - their messages always get through
+  vip_senders: []
+  # Example:
+  # - "Kevin Scott"
+  # - "Sam Schillace"
+    
+  # Priority keywords - trigger immediate attention
+  priority_keywords:
+    - "deadline"
+    - "urgent"
+    - "launch"
+    - "regression"
+    - "blocked"
+    - "blocker"
+    - "meeting in"
+    - "starting now"
+    - "action required"
+    - "please review"
+    
+  # Focus hours - during these times, be more aggressive about filtering
+  focus_hours:
+    - start: "09:00"
+      end: "12:00"
+    - start: "14:00"
+      end: "17:00"
+    
+  # Digest schedule - when to generate summaries
+  digest_schedule:
+    - time: "09:00"
+      type: "morning"
+    - time: "17:00"
+      type: "eod"
+      
+  # Patterns to always suppress (noise)
+  suppress_patterns:
+    - "liked your message"
+    - "reacted with"
+    - "is typing"
+    - "has joined the meeting"
+    - "has left the meeting"
+    - "weekly digest"
+    - "daily summary"
+    
+  # Default threshold for AI scoring (0.0 - 1.0)
+  # Notifications scoring above this get surfaced
+  relevance_threshold: 0.6
+  
+  # Maximum notifications to batch before forcing a digest
+  max_batch_size: 50
