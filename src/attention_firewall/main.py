@@ -338,17 +338,35 @@ def debug_winrt():
             UserNotificationListenerAccessStatus,
         )
         click.echo("✅ UserNotificationListener imported successfully")
+        click.echo(f"   Type: {type(UserNotificationListener)}")
+        click.echo(f"   Repr: {repr(UserNotificationListener)}")
         
         # List all attributes
         click.echo("\nUserNotificationListener attributes:")
         for attr in sorted(dir(UserNotificationListener)):
             if not attr.startswith('_'):
-                click.echo(f"  - {attr}")
+                try:
+                    val = getattr(UserNotificationListener, attr)
+                    click.echo(f"  - {attr}: {type(val).__name__}")
+                except Exception as e:
+                    click.echo(f"  - {attr}: (error: {e})")
         
-        click.echo("\nUserNotificationListenerAccessStatus attributes:")
-        for attr in sorted(dir(UserNotificationListenerAccessStatus)):
-            if not attr.startswith('_'):
-                click.echo(f"  - {attr}")
+        # Try calling request_access_async as a static/class method
+        click.echo("\n🔬 Attempting to call methods directly on class...")
+        
+        try:
+            # Maybe it's like a static method?
+            result = UserNotificationListener.request_access_async()
+            click.echo(f"   request_access_async() returned: {result}")
+        except Exception as e:
+            click.echo(f"   request_access_async() error: {e}")
+        
+        try:
+            # Check if there's a way to get access status
+            result = UserNotificationListener.get_access_status()
+            click.echo(f"   get_access_status() returned: {result}")
+        except Exception as e:
+            click.echo(f"   get_access_status() error: {e}")
                 
     except ImportError as e:
         click.echo(f"❌ Import failed: {e}")
