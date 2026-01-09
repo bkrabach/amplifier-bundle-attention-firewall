@@ -250,6 +250,83 @@ def test(app: str, title: str, body: str, sender: str | None):
 
 
 @cli.command()
+@click.option(
+    "--server", "-s",
+    default="http://localhost:8420",
+    help="Amplifier server URL",
+)
+@click.option(
+    "--device-id",
+    default=None,
+    help="Device identifier (default: hostname)",
+)
+@click.option(
+    "--device-name",
+    default=None,
+    help="Human-readable device name",
+)
+@click.option(
+    "--verbose", "-v",
+    is_flag=True,
+    help="Enable verbose logging",
+)
+def client(server: str, device_id: str | None, device_name: str | None, verbose: bool):
+    """Run in client mode - connect to amplifier-app-server.
+    
+    Captures local notifications and forwards them to the server.
+    Receives push notifications from the server and displays them locally.
+    
+    Example:
+        attention-firewall client --server http://hub.local:8420
+    """
+    setup_logging(verbose=verbose)
+    
+    from attention_firewall.client import run_client
+    
+    click.echo("Starting Attention Firewall client...")
+    click.echo(f"Connecting to: {server}")
+    click.echo("Press Ctrl+C to stop")
+    click.echo()
+    
+    try:
+        asyncio.run(run_client(
+            server_url=server,
+            device_id=device_id,
+            device_name=device_name,
+        ))
+    except KeyboardInterrupt:
+        click.echo("\nShutdown complete")
+
+
+@cli.command()
+@click.option(
+    "--server", "-s",
+    default="http://localhost:8420",
+    help="Amplifier server URL to check",
+)
+def server_status(server: str):
+    """Check amplifier-app-server status."""
+    import httpx
+    
+    try:
+        response = httpx.get(f"{server}/health", timeout=5)
+        data = response.json()
+        
+        click.echo(f"\n🖥️  Server Status: {server}")
+        click.echo("=" * 50)
+        click.echo(f"Status: {'✅ ' + data['status'] if data['status'] == 'healthy' else '❌ ' + data['status']}")
+        click.echo(f"Active sessions: {data.get('sessions', 0)}")
+        click.echo(f"Connected devices: {data.get('connected_devices', 0)}")
+        
+    except httpx.ConnectError:
+        click.echo(f"❌ Cannot connect to server at {server}")
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"❌ Error: {e}")
+        sys.exit(1)
+
+
+@cli.command()
 def check():
     """Check if notification listening is available."""
     import platform

@@ -157,13 +157,63 @@ global:
 
 | Command | Description |
 |---------|-------------|
-| `run` | Start the daemon service |
+| `run` | Start the standalone daemon service |
+| `client` | Connect to amplifier-app-server (recommended) |
+| `server-status` | Check amplifier-app-server status |
 | `check` | Verify system requirements |
 | `summary` | Show notification statistics |
 | `policies` | Show current policies |
 | `add-vip <name>` | Add sender to VIP list |
 | `remove-vip <name>` | Remove sender from VIP list |
 | `test` | Send a test notification |
+
+## Client Mode (Recommended)
+
+For the best experience, run Attention Firewall in **client mode** connected to an [amplifier-app-server](https://github.com/bkrabach/amplifier-app-server):
+
+```bash
+# On your always-on server (Linux/WSL/Mac)
+amplifier-server run --bundle attention-firewall --port 8420
+
+# On your Windows machine(s)
+attention-firewall client --server http://your-server:8420
+```
+
+**Benefits of client mode:**
+- AI-powered filtering via full Amplifier sessions
+- Multi-device support (all your Windows machines report to one hub)
+- Remote access via Tailscale or similar
+- Persistent conversation context across sessions
+- Chat with your personal assistant about notifications
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    CLIENT MODE ARCHITECTURE                          │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  Windows Device 1          Windows Device 2          Windows Device 3│
+│  ┌───────────────┐         ┌───────────────┐         ┌───────────────┐│
+│  │ attention-    │         │ attention-    │         │ attention-    ││
+│  │ firewall      │         │ firewall      │         │ firewall      ││
+│  │ client        │         │ client        │         │ client        ││
+│  └───────┬───────┘         └───────┬───────┘         └───────┬───────┘│
+│          │                         │                         │       │
+│          │     HTTP/WebSocket      │                         │       │
+│          └─────────────────────────┼─────────────────────────┘       │
+│                                    │                                 │
+│                                    ▼                                 │
+│                    ┌───────────────────────────────┐                │
+│                    │    amplifier-app-server       │                │
+│                    │    (always-on hub)            │                │
+│                    │                               │                │
+│                    │  • AI-powered filtering       │                │
+│                    │  • Conversation context       │                │
+│                    │  • Policy management          │                │
+│                    │  • Multi-device sync          │                │
+│                    └───────────────────────────────┘                │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
 
 ## Data Storage
 
