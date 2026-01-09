@@ -113,12 +113,11 @@ class WindowsNotificationListener:
         UserNotificationListener = self._winrt["UserNotificationListener"]
         AccessStatus = self._winrt["UserNotificationListenerAccessStatus"]
         
-        # pywinrt static class pattern: the class itself is the singleton
-        # Methods need the class passed as 'self'
-        self._listener = UserNotificationListener
+        # pywinrt 2.0+: static properties are accessed as lowercase attributes
+        self._listener = UserNotificationListener.current
         
-        # Request access - pass class as self for static class pattern
-        status = await UserNotificationListener.request_access_async(UserNotificationListener)
+        # Request access
+        status = await self._listener.request_access_async()
         
         if status == AccessStatus.ALLOWED:
             logger.info("Notification access granted")
