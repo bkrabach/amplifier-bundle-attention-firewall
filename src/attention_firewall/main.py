@@ -363,16 +363,43 @@ def debug_winrt():
             except Exception as e:
                 click.echo(f"  - {attr}: (error: {e})")
         
-        # Try to find the instance class
-        click.echo("\n🔬 Checking for instance type...")
+        # Try _from method - this is often how pywinrt gets singletons
+        click.echo("\n🔬 Trying _from method...")
         try:
-            # The _Static suffix suggests there might be a non-static version
-            instance_name = "UserNotificationListener"
-            if hasattr(mgmt, '_winrt_windows_ui_notifications_management'):
-                submod = getattr(mgmt, '_winrt_windows_ui_notifications_management')
-                click.echo(f"   Found submodule: {dir(submod)}")
+            instance = UserNotificationListener._from(None)
+            click.echo(f"   _from(None) returned: {instance}, type: {type(instance)}")
+        except Exception as e:
+            click.echo(f"   _from(None) error: {e}")
+        
+        try:
+            instance = UserNotificationListener._from(0)
+            click.echo(f"   _from(0) returned: {instance}, type: {type(instance)}")
+        except Exception as e:
+            click.echo(f"   _from(0) error: {e}")
+            
+        # Check the winrt submodule
+        click.echo("\n🔬 Checking winrt submodule...")
+        try:
+            import winrt
+            click.echo(f"   winrt module: {dir(winrt)[:10]}...")
+            if hasattr(winrt, 'system'):
+                click.echo(f"   winrt.system exists")
         except Exception as e:
             click.echo(f"   Error: {e}")
+            
+        # Try running async request_access directly
+        click.echo("\n🔬 Trying async call...")
+        import asyncio
+        async def try_access():
+            try:
+                # The methods might work on the class directly for static classes
+                result = UserNotificationListener.get_access_status(None)
+                return f"get_access_status(None): {result}"
+            except Exception as e:
+                return f"get_access_status(None) error: {e}"
+        
+        result = asyncio.run(try_access())
+        click.echo(f"   {result}")
                 
     except ImportError as e:
         click.echo(f"❌ Import failed: {e}")
