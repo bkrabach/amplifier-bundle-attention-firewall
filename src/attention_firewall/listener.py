@@ -154,14 +154,14 @@ class WindowsNotificationListener:
             
             try:
                 # Handle both API styles: get_binding/GetBinding, get_toast_generic/ToastGeneric
-            toast_generic = (
-                KnownBindings.ToastGeneric if hasattr(KnownBindings, "ToastGeneric")
-                else KnownBindings.get_toast_generic()
-            )
-            if hasattr(notif.notification.visual, "GetBinding"):
-                binding = notif.notification.visual.GetBinding(toast_generic)
-            else:
-                binding = notif.notification.visual.get_binding(toast_generic)
+                toast_generic = (
+                    KnownBindings.ToastGeneric if hasattr(KnownBindings, "ToastGeneric")
+                    else KnownBindings.get_toast_generic()
+                )
+                if hasattr(notif.notification.visual, "GetBinding"):
+                    binding = notif.notification.visual.GetBinding(toast_generic)
+                else:
+                    binding = notif.notification.visual.get_binding(toast_generic)
                 if binding:
                     # Handle both API styles
                     if hasattr(binding, "GetTextElements"):
