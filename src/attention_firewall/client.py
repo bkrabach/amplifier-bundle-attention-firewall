@@ -72,7 +72,8 @@ class AttentionFirewallClient:
             logger.warning("Install with: pip install websockets")
             return
         
-        ws_endpoint = f"{self.ws_url}/ws/device/{self.device_id}?platform=windows&device_name={self.device_name}"
+        from urllib.parse import quote
+        ws_endpoint = f"{self.ws_url}/ws/device/{self.device_id}?platform=windows&device_name={quote(self.device_name)}"
         
         while self._running:
             try:
