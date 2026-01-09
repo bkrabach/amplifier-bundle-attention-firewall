@@ -333,40 +333,46 @@ def debug_winrt():
     click.echo("=" * 50)
     
     try:
+        # Check the whole module
+        import winrt.windows.ui.notifications.management as mgmt
+        click.echo("Module attributes:")
+        for attr in sorted(dir(mgmt)):
+            if not attr.startswith('_'):
+                click.echo(f"  - {attr}")
+        
         from winrt.windows.ui.notifications.management import (
             UserNotificationListener,
             UserNotificationListenerAccessStatus,
         )
-        click.echo("✅ UserNotificationListener imported successfully")
+        click.echo("\n✅ UserNotificationListener imported successfully")
         click.echo(f"   Type: {type(UserNotificationListener)}")
         click.echo(f"   Repr: {repr(UserNotificationListener)}")
         
-        # List all attributes
-        click.echo("\nUserNotificationListener attributes:")
+        # Check for 'current' property at module level or on class
+        click.echo("\n🔬 Looking for 'current' or instance getter...")
+        
+        if hasattr(mgmt, 'current'):
+            click.echo(f"   mgmt.current exists: {mgmt.current}")
+        
+        # Check hidden attributes too
+        click.echo("\nALL UserNotificationListener attributes (including _):")
         for attr in sorted(dir(UserNotificationListener)):
-            if not attr.startswith('_'):
-                try:
-                    val = getattr(UserNotificationListener, attr)
-                    click.echo(f"  - {attr}: {type(val).__name__}")
-                except Exception as e:
-                    click.echo(f"  - {attr}: (error: {e})")
+            try:
+                val = getattr(UserNotificationListener, attr)
+                click.echo(f"  - {attr}: {type(val).__name__} = {repr(val)[:60]}")
+            except Exception as e:
+                click.echo(f"  - {attr}: (error: {e})")
         
-        # Try calling request_access_async as a static/class method
-        click.echo("\n🔬 Attempting to call methods directly on class...")
-        
+        # Try to find the instance class
+        click.echo("\n🔬 Checking for instance type...")
         try:
-            # Maybe it's like a static method?
-            result = UserNotificationListener.request_access_async()
-            click.echo(f"   request_access_async() returned: {result}")
+            # The _Static suffix suggests there might be a non-static version
+            instance_name = "UserNotificationListener"
+            if hasattr(mgmt, '_winrt_windows_ui_notifications_management'):
+                submod = getattr(mgmt, '_winrt_windows_ui_notifications_management')
+                click.echo(f"   Found submodule: {dir(submod)}")
         except Exception as e:
-            click.echo(f"   request_access_async() error: {e}")
-        
-        try:
-            # Check if there's a way to get access status
-            result = UserNotificationListener.get_access_status()
-            click.echo(f"   get_access_status() returned: {result}")
-        except Exception as e:
-            click.echo(f"   get_access_status() error: {e}")
+            click.echo(f"   Error: {e}")
                 
     except ImportError as e:
         click.echo(f"❌ Import failed: {e}")
@@ -374,10 +380,6 @@ def debug_winrt():
     try:
         from winrt.windows.ui.notifications import KnownNotificationBindings
         click.echo("\n✅ KnownNotificationBindings imported successfully")
-        click.echo("\nKnownNotificationBindings attributes:")
-        for attr in sorted(dir(KnownNotificationBindings)):
-            if not attr.startswith('_'):
-                click.echo(f"  - {attr}")
     except ImportError as e:
         click.echo(f"❌ KnownNotificationBindings import failed: {e}")
 
