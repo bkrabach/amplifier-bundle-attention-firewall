@@ -15,6 +15,7 @@ dependencies = [
     "winrt-Windows.UI.Notifications.Management",
     "winrt-Windows.Foundation",
     "winrt-Windows.Foundation.Collections",
+    "winrt-Windows.ApplicationModel",
     
     # Amplifier
     "amplifier-core @ git+https://github.com/microsoft/amplifier-core",
