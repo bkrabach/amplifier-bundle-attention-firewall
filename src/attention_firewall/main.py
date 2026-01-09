@@ -327,6 +327,44 @@ def server_status(server: str):
 
 
 @cli.command()
+def debug_winrt():
+    """Debug pywinrt API to find correct method names."""
+    click.echo("\n🔧 pywinrt API Debug")
+    click.echo("=" * 50)
+    
+    try:
+        from winrt.windows.ui.notifications.management import (
+            UserNotificationListener,
+            UserNotificationListenerAccessStatus,
+        )
+        click.echo("✅ UserNotificationListener imported successfully")
+        
+        # List all attributes
+        click.echo("\nUserNotificationListener attributes:")
+        for attr in sorted(dir(UserNotificationListener)):
+            if not attr.startswith('_'):
+                click.echo(f"  - {attr}")
+        
+        click.echo("\nUserNotificationListenerAccessStatus attributes:")
+        for attr in sorted(dir(UserNotificationListenerAccessStatus)):
+            if not attr.startswith('_'):
+                click.echo(f"  - {attr}")
+                
+    except ImportError as e:
+        click.echo(f"❌ Import failed: {e}")
+    
+    try:
+        from winrt.windows.ui.notifications import KnownNotificationBindings
+        click.echo("\n✅ KnownNotificationBindings imported successfully")
+        click.echo("\nKnownNotificationBindings attributes:")
+        for attr in sorted(dir(KnownNotificationBindings)):
+            if not attr.startswith('_'):
+                click.echo(f"  - {attr}")
+    except ImportError as e:
+        click.echo(f"❌ KnownNotificationBindings import failed: {e}")
+
+
+@cli.command()
 def check():
     """Check if notification listening is available."""
     import platform
