@@ -113,20 +113,11 @@ class WindowsNotificationListener:
         UserNotificationListener = self._winrt["UserNotificationListener"]
         AccessStatus = self._winrt["UserNotificationListenerAccessStatus"]
         
-        # pywinrt API: static methods may be GetCurrent() or get_current()
-        if hasattr(UserNotificationListener, "GetCurrent"):
-            self._listener = UserNotificationListener.GetCurrent()
-        elif hasattr(UserNotificationListener, "get_current"):
-            self._listener = UserNotificationListener.get_current()
-        else:
-            # Try accessing as a property
-            self._listener = UserNotificationListener.Current
+        # pywinrt: instantiate directly (it's a singleton internally)
+        self._listener = UserNotificationListener()
         
-        # Request access - may be RequestAccessAsync or request_access_async
-        if hasattr(self._listener, "RequestAccessAsync"):
-            status = await self._listener.RequestAccessAsync()
-        else:
-            status = await self._listener.request_access_async()
+        # Request access
+        status = await self._listener.request_access_async()
         
         if status == AccessStatus.ALLOWED:
             logger.info("Notification access granted")
