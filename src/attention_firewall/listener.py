@@ -6,6 +6,7 @@ Requires Windows 10 Anniversary Update+ (build 14393+).
 
 import asyncio
 import logging
+import re
 from datetime import datetime
 from typing import Any
 
@@ -222,26 +223,58 @@ class WindowsNotificationListener:
         Different apps format their notifications differently:
         - Teams: Title is often the sender name or channel
         - WhatsApp: Title is sender or group name
-        - Outlook: Title might be "New mail from [sender]"
+        - Phone Link: Title is sender name or phone number
+        - Outlook: Title is sender name (unless generic "Outlook" title)
         """
-        # Simple heuristic: use title as sender hint for messaging apps
-        messaging_apps = ["teams", "whatsapp", "slack", "discord", "telegram"]
         app_lower = app_id.lower()
 
+        # Messaging apps where title = sender
+        messaging_apps = ["teams", "whatsapp", "slack", "discord", "telegram", "phone link"]
         if any(app in app_lower for app in messaging_apps):
-            # Title is often the sender/channel
+            # Title is the sender name or phone number
             return title if title else None
 
-        # For email apps, try to extract from "from [sender]" pattern
+        # Outlook/Mail apps - more complex extraction
         if "outlook" in app_lower or "mail" in app_lower:
-            # Check for "from X" pattern in title or body
-            for text in [title, body]:
-                if "from " in text.lower():
-                    # Extract name after "from"
-                    idx = text.lower().find("from ")
-                    if idx >= 0:
-                        sender_part = text[idx + 5 :].split()[0:3]  # Take up to 3 words
-                        return " ".join(sender_part)
+            return self._extract_outlook_sender(title, body)
+
+        return None
+
+    def _extract_outlook_sender(self, title: str, body: str) -> str | None:
+        """Extract sender from Outlook notifications.
+
+        Outlook notification patterns:
+        - title='Microsoft account team', body='...' → sender is title
+        - title='Outlook', body='Reaction Daily Digest...' → sender in body
+        - title='Microsoft Outlook', body='...' → sender in body
+        """
+        # If title is NOT the generic app name, it's likely the sender
+        generic_titles = ["outlook", "microsoft outlook", "mail", "microsoft mail"]
+        if title and title.lower() not in generic_titles:
+            return title
+
+        # Title is generic - try to extract sender from body
+        if body:
+            # Pattern: "From: Sender Name" or "From: email@domain.com"
+            # Match "From: X" pattern
+            from_match = re.search(r"[Ff]rom[:\s]+([^<\n]+?)(?:\s*<|$|\n)", body)
+            if from_match:
+                sender = from_match.group(1).strip()
+                if sender:
+                    return sender
+
+            # Pattern: "X reacted to" (reaction notifications)
+            reacted_match = re.search(r"^([^:]+?)\s+reacted\s+to", body)
+            if reacted_match:
+                return reacted_match.group(1).strip()
+
+            # Pattern: "X sent you" or "X shared"
+            action_match = re.search(r"^([^:]+?)\s+(?:sent|shared|replied|commented)", body)
+            if action_match:
+                sender = action_match.group(1).strip()
+                # Avoid matching entire sentences
+                if len(sender.split()) <= 4:
+                    return sender
 
         return None
 
