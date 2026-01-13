@@ -145,12 +145,17 @@ class WindowsNotificationListener:
             body = ""
 
             try:
-                # Handle both API styles: get_binding/GetBinding, get_toast_generic/ToastGeneric
-                toast_generic = (
-                    KnownBindings.ToastGeneric
-                    if hasattr(KnownBindings, "ToastGeneric")
-                    else KnownBindings.get_toast_generic()
-                )
+                # Get ToastGeneric binding template
+                # pywinrt 2.0+ uses snake_case: toast_generic
+                # Older versions might use ToastGeneric (PascalCase)
+                if hasattr(KnownBindings, "toast_generic"):
+                    toast_generic = KnownBindings.toast_generic
+                elif hasattr(KnownBindings, "ToastGeneric"):
+                    toast_generic = KnownBindings.ToastGeneric
+                else:
+                    attrs = [a for a in dir(KnownBindings) if not a.startswith("_")]
+                    logger.warning(f"[EXTRACT] Cannot find toast_generic. Attrs: {attrs}")
+                    toast_generic = None
                 logger.debug(f"[EXTRACT] toast_generic={toast_generic}")
 
                 # Try to get binding
@@ -248,7 +253,6 @@ class WindowsNotificationListener:
         try:
             # Only process additions
             if hasattr(args, "change_kind"):
-
                 # We only care about new notifications, not removals
                 pass
 
