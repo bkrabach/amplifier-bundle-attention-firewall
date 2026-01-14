@@ -133,12 +133,15 @@ class WindowsNotificationListener:
         try:
             KnownBindings = self._winrt["KnownNotificationBindings"]
 
-            # Get app info
+            # Get app info - some notifications throw E_NOTIMPL when accessing properties
             app_id = "Unknown"
-            if hasattr(notif, "app_info") and notif.app_info:
+            if hasattr(notif, "app_info"):
                 try:
-                    app_id = notif.app_info.display_info.display_name
-                except Exception:
+                    if notif.app_info and hasattr(notif.app_info, "display_info"):
+                        app_id = notif.app_info.display_info.display_name
+                except (AttributeError, OSError) as e:
+                    # OSError -2147467263 = E_NOTIMPL (not implemented)
+                    logger.debug(f"Could not get app_info: {e}")
                     pass
 
             # Get text content from toast binding
