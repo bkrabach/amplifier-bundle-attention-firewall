@@ -73,9 +73,13 @@ class ToastSender:
         """
         if not self._is_windows:
             # Log the notification that would have been sent
-            urgency_emoji = {"low": "📩", "normal": "📬", "high": "🚨"}.get(urgency, "📬")
+            urgency_emoji = {"low": "📩", "normal": "📬", "high": "🚨"}.get(
+                urgency, "📬"
+            )
             logger.info(
-                f"{urgency_emoji} [TOAST] {title}\n   {body}\n   Rationale: {rationale or 'N/A'}"
+                f"{urgency_emoji} [TOAST] {title}\n"
+                f"   {body}\n"
+                f"   Rationale: {rationale or 'N/A'}"
             )
             return True
 
@@ -103,7 +107,9 @@ class ToastSender:
         # Build attribution text
         attribution = ""
         if rationale:
-            attribution_xml = f'<text placement="attribution">{_escape_xml(rationale)}</text>'
+            attribution_xml = (
+                f'<text placement="attribution">{_escape_xml(rationale)}</text>'
+            )
             attribution = attribution_xml
 
         # Determine scenario based on urgency
@@ -125,40 +131,37 @@ class ToastSender:
 """.strip()
 
         # PowerShell script to show the toast
-        # Using BurntToast module if available, otherwise raw API
+        # This approach works on Windows 10/11 without BurntToast
         ps_script = f"""
 $ErrorActionPreference = 'Stop'
 
-# Try BurntToast first (simpler)
-if (Get-Module -ListAvailable -Name BurntToast) {{
-    Import-Module BurntToast
-    $Text1 = "{_escape_powershell(title)}"
-    $Text2 = "{_escape_powershell(body)}"
-    New-BurntToastNotification -Text $Text1, $Text2 -AppLogo $null
-    exit 0
-}}
+# Load WinRT assemblies
+$null = [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime]
+$null = [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime]
 
-# Fall back to raw Windows API
-Add-Type -AssemblyName Windows.UI
-$tn = 'Windows.UI.Notifications'
-$xd = 'Windows.Data.Xml.Dom'
-$null = [Windows.UI.Notifications.ToastNotificationManager,$tn,ContentType=WindowsRuntime]
-$null = [Windows.Data.Xml.Dom.XmlDocument,$xd,ContentType=WindowsRuntime]
-
+# Create XML document
 $xml = [Windows.Data.Xml.Dom.XmlDocument]::new()
-$xml.LoadXml(@"
+$xml.LoadXml(@'
 {toast_xml}
-"@)
+'@)
 
+# Create and show notification
+$appId = '{self.APP_ID}'
 $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
-$mgr = [Windows.UI.Notifications.ToastNotificationManager]
-$notifier = $mgr::CreateToastNotifier("{self.APP_ID}")
+$notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($appId)
 $notifier.Show($toast)
 """
 
         # Run PowerShell
         result = subprocess.run(
-            ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_script],
+            [
+                "powershell",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                ps_script,
+            ],
             capture_output=True,
             text=True,
             timeout=10,
