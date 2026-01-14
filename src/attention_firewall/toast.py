@@ -1,99 +1,53 @@
 """Windows toast notification sender.
 
 Raises agent-branded notifications to surface important items to the user.
+Uses PowerShell for reliable cross-version Windows support.
 """
 
 import logging
+import subprocess
+import sys
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-def _try_import_winrt():
-    """Try to import winrt modules for sending toasts."""
-    try:
-        from winrt.windows.data.xml.dom import XmlDocument  # type: ignore[import-not-found]
-        from winrt.windows.ui.notifications import (  # type: ignore[import-not-found]
-            ToastNotification,
-            ToastNotificationManager,
-            ToastTemplateType,
-        )
+def _escape_powershell(s: str) -> str:
+    """Escape a string for use in PowerShell."""
+    # Escape backticks, dollars, and quotes
+    return s.replace("`", "``").replace('"', '`"').replace("$", "`$")
 
-        return {
-            "ToastNotificationManager": ToastNotificationManager,
-            "ToastNotification": ToastNotification,
-            "ToastTemplateType": ToastTemplateType,
-            "XmlDocument": XmlDocument,
-        }
-    except ImportError:
-        return None
+
+def _escape_xml(s: str) -> str:
+    """Escape XML special characters."""
+    return (
+        s.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+        .replace("'", "&apos;")
+    )
 
 
 class ToastSender:
     """Sends Windows toast notifications.
 
-    Uses the Windows Toast Notification API to display agent-branded
-    notifications with customizable content and urgency levels.
+    Uses PowerShell and the Windows Toast Notification API to display
+    agent-branded notifications with customizable content and urgency levels.
     """
 
     # App identifier for our notifications
-    APP_ID = "Attention Firewall"
+    APP_ID = "Cortex"
 
     def __init__(self):
-        self._winrt = _try_import_winrt()
-
-        if self._winrt is None:
-            logger.warning(
-                "winrt modules not available - toasts will be logged only. "
-                "Install winrt-Windows.UI.Notifications for real toast support."
-            )
+        self._is_windows = sys.platform == "win32"
+        if not self._is_windows:
+            logger.warning("Not running on Windows - toasts will be logged only")
 
     @property
     def is_available(self) -> bool:
         """Check if toast sending is available."""
-        return self._winrt is not None
-
-    def _build_toast_xml(
-        self,
-        title: str,
-        body: str,
-        urgency: str = "normal",
-        rationale: str | None = None,
-        app_source: str | None = None,
-    ) -> str:
-        """Build toast notification XML."""
-
-        # Escape XML special characters
-        def escape(s: str) -> str:
-            return (
-                s.replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace('"', "&quot;")
-                .replace("'", "&apos;")
-            )
-
-        # Add attribution if provided
-        attribution = ""
-        if rationale:
-            attribution = f'<text placement="attribution">{escape(rationale)}</text>'
-
-        # Build the toast XML
-        # Using ToastGeneric template for flexible layout
-        xml = f"""
-        <toast activationType="protocol" scenario="{"urgent" if urgency == "high" else "default"}">
-            <visual>
-                <binding template="ToastGeneric">
-                    <text>{escape(title)}</text>
-                    <text>{escape(body)}</text>
-                    {attribution}
-                </binding>
-            </visual>
-            <audio silent="{str(urgency == "low").lower()}" />
-        </toast>
-        """
-
-        return xml.strip()
+        return self._is_windows
 
     async def send(
         self,
@@ -117,7 +71,7 @@ class ToastSender:
         Returns:
             True if notification was sent, False otherwise
         """
-        if not self._winrt:
+        if not self._is_windows:
             # Log the notification that would have been sent
             urgency_emoji = {"low": "📩", "normal": "📬", "high": "🚨"}.get(urgency, "📬")
             logger.info(
@@ -126,34 +80,96 @@ class ToastSender:
             return True
 
         try:
-            ToastNotificationManager = self._winrt["ToastNotificationManager"]
-            ToastNotification = self._winrt["ToastNotification"]
-            XmlDocument = self._winrt["XmlDocument"]
-
-            # Build XML
-            xml_string = self._build_toast_xml(
+            return self._send_via_powershell(
                 title=title,
                 body=body,
                 urgency=urgency,
                 rationale=rationale,
                 app_source=app_source,
             )
-
-            # Parse XML - load_xml is a static method in pywinrt
-            doc = XmlDocument.load_xml(xml_string)
-
-            # Create and show notification
-            notifier = ToastNotificationManager.create_toast_notifier(self.APP_ID)
-            toast = ToastNotification(doc)
-
-            notifier.show(toast)
-
-            logger.debug(f"Toast sent: {title}")
-            return True
-
         except Exception as e:
             logger.error(f"Failed to send toast: {e}")
             return False
+
+    def _send_via_powershell(
+        self,
+        title: str,
+        body: str,
+        urgency: str = "normal",
+        rationale: str | None = None,
+        app_source: str | None = None,
+    ) -> bool:
+        """Send toast using PowerShell (reliable cross-version approach)."""
+        # Build attribution text
+        attribution = ""
+        if rationale:
+            attribution_xml = f'<text placement="attribution">{_escape_xml(rationale)}</text>'
+            attribution = attribution_xml
+
+        # Determine scenario based on urgency
+        scenario = "urgent" if urgency == "high" else "default"
+        silent = "true" if urgency == "low" else "false"
+
+        # Build the toast XML
+        toast_xml = f"""
+<toast activationType="protocol" scenario="{scenario}">
+    <visual>
+        <binding template="ToastGeneric">
+            <text>{_escape_xml(title)}</text>
+            <text>{_escape_xml(body)}</text>
+            {attribution}
+        </binding>
+    </visual>
+    <audio silent="{silent}" />
+</toast>
+""".strip()
+
+        # PowerShell script to show the toast
+        # Using BurntToast module if available, otherwise raw API
+        ps_script = f"""
+$ErrorActionPreference = 'Stop'
+
+# Try BurntToast first (simpler)
+if (Get-Module -ListAvailable -Name BurntToast) {{
+    Import-Module BurntToast
+    $Text1 = "{_escape_powershell(title)}"
+    $Text2 = "{_escape_powershell(body)}"
+    New-BurntToastNotification -Text $Text1, $Text2 -AppLogo $null
+    exit 0
+}}
+
+# Fall back to raw Windows API
+Add-Type -AssemblyName Windows.UI
+$tn = 'Windows.UI.Notifications'
+$xd = 'Windows.Data.Xml.Dom'
+$null = [Windows.UI.Notifications.ToastNotificationManager,$tn,ContentType=WindowsRuntime]
+$null = [Windows.Data.Xml.Dom.XmlDocument,$xd,ContentType=WindowsRuntime]
+
+$xml = [Windows.Data.Xml.Dom.XmlDocument]::new()
+$xml.LoadXml(@"
+{toast_xml}
+"@)
+
+$toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
+$mgr = [Windows.UI.Notifications.ToastNotificationManager]
+$notifier = $mgr::CreateToastNotifier("{self.APP_ID}")
+$notifier.Show($toast)
+"""
+
+        # Run PowerShell
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_script],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+        if result.returncode != 0:
+            logger.error(f"PowerShell toast failed: {result.stderr}")
+            return False
+
+        logger.debug(f"Toast sent via PowerShell: {title}")
+        return True
 
     async def send_summary(
         self,
