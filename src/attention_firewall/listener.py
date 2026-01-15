@@ -144,6 +144,11 @@ class WindowsNotificationListener:
                     logger.debug(f"Could not get app_info: {e}")
                     pass
 
+            # Skip our own notifications (prevent feedback loop)
+            if app_id in ("Cortex", "Attention Firewall"):
+                logger.debug(f"Skipping our own notification: {app_id}")
+                return None
+
             # Get text content from toast binding
             title = ""
             body = ""
