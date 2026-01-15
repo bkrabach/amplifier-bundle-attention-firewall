@@ -221,6 +221,11 @@ class WindowsNotificationListener:
                 sender=sender,
             )
 
+        except OSError as e:
+            # OSError -2147467263 = E_NOTIMPL (some notification properties not implemented)
+            # This is normal for certain notification types - log at debug level
+            logger.debug(f"Skipping notification with unimplemented properties: {e}")
+            return None
         except Exception as e:
             logger.error(f"Error extracting notification data: {e}")
             return None
