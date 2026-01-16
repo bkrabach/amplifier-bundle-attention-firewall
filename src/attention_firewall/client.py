@@ -34,6 +34,7 @@ class AttentionFirewallClient:
         server_url: str = "http://localhost:8420",
         device_id: str | None = None,
         device_name: str | None = None,
+        api_key: str | None = None,
     ):
         """Initialize the client.
 
@@ -41,12 +42,14 @@ class AttentionFirewallClient:
             server_url: URL of the amplifier-app-server
             device_id: Unique device identifier (default: hostname)
             device_name: Human-readable device name
+            api_key: API key for authentication (required)
         """
         self.server_url = server_url.rstrip("/")
         self.ws_url = self.server_url.replace("http://", "ws://").replace("https://", "wss://")
 
         self.device_id = device_id or socket.gethostname()
         self.device_name = device_name or f"{socket.gethostname()} ({platform.system()})"
+        self.api_key = api_key
 
         # Components
         self.notification_queue: asyncio.Queue[NotificationData] = asyncio.Queue()
@@ -77,6 +80,9 @@ class AttentionFirewallClient:
             f"{self.ws_url}/ws/device/{self.device_id}"
             f"?platform=windows&device_name={quote(self.device_name)}"
         )
+
+        if self.api_key:
+            ws_endpoint += f"&api_key={quote(self.api_key)}"
 
         while self._running:
             try:
@@ -230,7 +236,17 @@ class AttentionFirewallClient:
 
         # Initialize components
         self.listener = create_listener(self.notification_queue, loop)
-        self.http_client = httpx.AsyncClient()
+
+        # Create HTTP client with API key header
+        headers = {}
+        if self.api_key:
+            headers["X-API-Key"] = self.api_key
+
+        self.http_client = httpx.AsyncClient(
+            base_url=self.server_url,
+            headers=headers,
+            timeout=10.0,
+        )
 
         # Request notification access
         if not await self.listener.request_access():
@@ -287,6 +303,7 @@ async def run_client(
     server_url: str = "http://localhost:8420",
     device_id: str | None = None,
     device_name: str | None = None,
+    api_key: str | None = None,
 ) -> None:
     """Run the client service."""
     import signal
@@ -295,6 +312,7 @@ async def run_client(
         server_url=server_url,
         device_id=device_id,
         device_name=device_name,
+        api_key=api_key,
     )
 
     # Set up signal handlers

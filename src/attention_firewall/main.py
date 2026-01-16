@@ -13,18 +13,18 @@ from attention_firewall import __version__
 def setup_logging(verbose: bool = False, log_file: Path | None = None) -> None:
     """Configure logging."""
     level = logging.DEBUG if verbose else logging.INFO
-    
+
     handlers = [logging.StreamHandler()]
     if log_file:
         handlers.append(logging.FileHandler(log_file))
-    
+
     logging.basicConfig(
         level=level,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
         handlers=handlers,
     )
-    
+
     # Quiet down noisy libraries
     logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
@@ -38,32 +38,35 @@ def cli():
 
 @cli.command()
 @click.option(
-    "--data-dir", "-d",
+    "--data-dir",
+    "-d",
     type=click.Path(path_type=Path),
     default=None,
     help="Data directory for state and logs (default: ~/.attention-firewall)",
 )
 @click.option(
-    "--config", "-c",
+    "--config",
+    "-c",
     type=click.Path(exists=True, path_type=Path),
     default=None,
     help="Path to policy configuration YAML",
 )
 @click.option(
-    "--verbose", "-v",
+    "--verbose",
+    "-v",
     is_flag=True,
     help="Enable verbose logging",
 )
 def run(data_dir: Path | None, config: Path | None, verbose: bool):
     """Run the Attention Firewall daemon."""
     setup_logging(verbose=verbose)
-    
+
     from attention_firewall.daemon import run_daemon
-    
+
     click.echo("Starting Attention Firewall...")
     click.echo("Press Ctrl+C to stop")
     click.echo()
-    
+
     try:
         asyncio.run(run_daemon(data_dir=data_dir, config_path=config))
     except KeyboardInterrupt:
@@ -72,7 +75,8 @@ def run(data_dir: Path | None, config: Path | None, verbose: bool):
 
 @cli.command()
 @click.option(
-    "--data-dir", "-d",
+    "--data-dir",
+    "-d",
     type=click.Path(path_type=Path),
     default=None,
     help="Data directory (default: ~/.attention-firewall)",
@@ -81,38 +85,39 @@ def run(data_dir: Path | None, config: Path | None, verbose: bool):
 def summary(data_dir: Path | None, hours: int):
     """Generate a notification summary."""
     from attention_firewall.state import NotificationStateManager
-    
+
     data_dir = data_dir or Path.home() / ".attention-firewall"
     db_path = data_dir / "notifications.db"
-    
+
     if not db_path.exists():
         click.echo("No notification database found. Run the daemon first.")
         sys.exit(1)
-    
+
     state = NotificationStateManager(db_path)
     stats = state.get_statistics(hours=hours)
-    
+
     click.echo(f"\n📊 Notification Summary (last {hours} hours)")
     click.echo("=" * 50)
     click.echo(f"Total received: {stats['total']}")
     click.echo(f"  ✅ Surfaced:   {stats['surfaced']}")
     click.echo(f"  🚫 Suppressed: {stats['suppressed']}")
     click.echo(f"  📋 In digest:  {stats['digest']}")
-    
-    if stats['by_app']:
+
+    if stats["by_app"]:
         click.echo("\nBy App:")
-        for app, count in sorted(stats['by_app'].items(), key=lambda x: -x[1]):
+        for app, count in sorted(stats["by_app"].items(), key=lambda x: -x[1]):
             click.echo(f"  {app}: {count}")
-    
-    if stats['top_senders']:
+
+    if stats["top_senders"]:
         click.echo("\nTop Senders:")
-        for sender, count in list(stats['top_senders'].items())[:5]:
+        for sender, count in list(stats["top_senders"].items())[:5]:
             click.echo(f"  {sender}: {count}")
 
 
 @cli.command()
 @click.option(
-    "--data-dir", "-d",
+    "--data-dir",
+    "-d",
     type=click.Path(path_type=Path),
     default=None,
     help="Data directory (default: ~/.attention-firewall)",
@@ -120,37 +125,37 @@ def summary(data_dir: Path | None, hours: int):
 def policies(data_dir: Path | None):
     """Show current policies (VIPs, keywords, muted apps)."""
     from attention_firewall.state import NotificationStateManager
-    
+
     data_dir = data_dir or Path.home() / ".attention-firewall"
     db_path = data_dir / "notifications.db"
-    
+
     if not db_path.exists():
         click.echo("No notification database found. Run the daemon first.")
         sys.exit(1)
-    
+
     state = NotificationStateManager(db_path)
     policies = state.get_all_policies()
-    
+
     click.echo("\n🛡️ Current Policies")
     click.echo("=" * 50)
-    
+
     click.echo("\n⭐ VIP Senders:")
-    if policies['vips']:
-        for vip in sorted(policies['vips']):
+    if policies["vips"]:
+        for vip in sorted(policies["vips"]):
             click.echo(f"  - {vip}")
     else:
         click.echo("  (none)")
-    
+
     click.echo("\n🔑 Priority Keywords:")
-    if policies['keywords']:
-        for kw in sorted(policies['keywords']):
+    if policies["keywords"]:
+        for kw in sorted(policies["keywords"]):
             click.echo(f"  - {kw}")
     else:
         click.echo("  (none)")
-    
+
     click.echo("\n🔇 Muted Apps:")
-    if policies['muted_apps']:
-        for app, until in policies['muted_apps'].items():
+    if policies["muted_apps"]:
+        for app, until in policies["muted_apps"].items():
             click.echo(f"  - {app} (until {until})")
     else:
         click.echo("  (none)")
@@ -159,7 +164,8 @@ def policies(data_dir: Path | None):
 @cli.command()
 @click.argument("sender")
 @click.option(
-    "--data-dir", "-d",
+    "--data-dir",
+    "-d",
     type=click.Path(path_type=Path),
     default=None,
     help="Data directory (default: ~/.attention-firewall)",
@@ -167,21 +173,22 @@ def policies(data_dir: Path | None):
 def add_vip(sender: str, data_dir: Path | None):
     """Add a sender to the VIP list."""
     from attention_firewall.state import NotificationStateManager
-    
+
     data_dir = data_dir or Path.home() / ".attention-firewall"
     data_dir.mkdir(parents=True, exist_ok=True)
     db_path = data_dir / "notifications.db"
-    
+
     state = NotificationStateManager(db_path)
     state.add_vip(sender)
-    
+
     click.echo(f"✅ Added '{sender}' to VIP list")
 
 
 @cli.command()
 @click.argument("sender")
 @click.option(
-    "--data-dir", "-d",
+    "--data-dir",
+    "-d",
     type=click.Path(path_type=Path),
     default=None,
     help="Data directory (default: ~/.attention-firewall)",
@@ -189,14 +196,14 @@ def add_vip(sender: str, data_dir: Path | None):
 def remove_vip(sender: str, data_dir: Path | None):
     """Remove a sender from the VIP list."""
     from attention_firewall.state import NotificationStateManager
-    
+
     data_dir = data_dir or Path.home() / ".attention-firewall"
     db_path = data_dir / "notifications.db"
-    
+
     if not db_path.exists():
         click.echo("No notification database found.")
         sys.exit(1)
-    
+
     state = NotificationStateManager(db_path)
     if state.remove_vip(sender):
         click.echo(f"✅ Removed '{sender}' from VIP list")
@@ -206,29 +213,33 @@ def remove_vip(sender: str, data_dir: Path | None):
 
 @cli.command()
 @click.option(
-    "--app", "-a",
+    "--app",
+    "-a",
     default="Test App",
     help="App name for test notification",
 )
 @click.option(
-    "--title", "-t",
+    "--title",
+    "-t",
     default="Test Notification",
     help="Notification title",
 )
 @click.option(
-    "--body", "-b",
+    "--body",
+    "-b",
     default="This is a test notification from Attention Firewall",
     help="Notification body",
 )
 @click.option(
-    "--sender", "-s",
+    "--sender",
+    "-s",
     default=None,
     help="Sender name",
 )
 def test(app: str, title: str, body: str, sender: str | None):
     """Send a test notification to verify setup."""
     from attention_firewall.toast import ToastSender
-    
+
     async def send_test():
         toast = ToastSender()
         success = await toast.send(
@@ -238,9 +249,9 @@ def test(app: str, title: str, body: str, sender: str | None):
             rationale="Test notification",
         )
         return success
-    
+
     success = asyncio.run(send_test())
-    
+
     if success:
         click.echo("✅ Test notification sent!")
         if not ToastSender()._winrt:
@@ -250,74 +261,101 @@ def test(app: str, title: str, body: str, sender: str | None):
 
 
 @cli.command()
+@click.option("--server", help="Server URL (overrides config file)")
+@click.option("--device-id", help="Device ID (overrides config file)")
+@click.option("--device-name", help="Human-readable device name")
+@click.option("--api-key", help="API key for authentication (overrides config file)")
+@click.option("--config", type=click.Path(exists=True, path_type=Path), help="Config file path")
 @click.option(
-    "--server", "-s",
-    default="http://localhost:8420",
-    help="Amplifier server URL",
-)
-@click.option(
-    "--device-id",
-    default=None,
-    help="Device identifier (default: hostname)",
-)
-@click.option(
-    "--device-name",
-    default=None,
-    help="Human-readable device name",
-)
-@click.option(
-    "--verbose", "-v",
+    "--verbose",
+    "-v",
     is_flag=True,
     help="Enable verbose logging",
 )
-def client(server: str, device_id: str | None, device_name: str | None, verbose: bool):
+def client(
+    server: str | None,
+    device_id: str | None,
+    device_name: str | None,
+    api_key: str | None,
+    config: Path | None,
+    verbose: bool,
+):
     """Run in client mode - connect to amplifier-app-server.
-    
+
     Captures local notifications and forwards them to the server.
     Receives push notifications from the server and displays them locally.
-    
+
+    Configuration is loaded from:
+      - Windows: %USERPROFILE%\\.cortex\\client.yaml
+      - Linux/Mac: ~/.config/cortex/client.yaml
+
+    CLI options override config file values.
+
     Example:
-        attention-firewall client --server http://hub.local:8420
+        attention-firewall client --server http://hub.local:8420 --api-key cortex_user123_abc...
     """
     setup_logging(verbose=verbose)
-    
+
     from attention_firewall.client import run_client
-    
+    from attention_firewall.config import ClientConfig
+
+    # Load config from file
+    file_config = ClientConfig.load(config)
+
+    # CLI args override file config
+    final_server = server or file_config.server
+    final_device_id = device_id or file_config.device_id
+    final_api_key = api_key or file_config.api_key
+
+    # Validate API key
+    if not final_api_key:
+        click.echo("ERROR: API key required for authentication")
+        click.echo("Either:")
+        click.echo(f"  1. Add to config file: {ClientConfig.get_default_config_path()}")
+        click.echo("  2. Pass via --api-key flag")
+        raise click.Abort()
+
     click.echo("Starting Attention Firewall client...")
-    click.echo(f"Connecting to: {server}")
+    click.echo(f"Connecting to: {final_server}")
     click.echo("Press Ctrl+C to stop")
     click.echo()
-    
+
     try:
-        asyncio.run(run_client(
-            server_url=server,
-            device_id=device_id,
-            device_name=device_name,
-        ))
+        asyncio.run(
+            run_client(
+                server_url=final_server,
+                device_id=final_device_id,
+                device_name=device_name,
+                api_key=final_api_key,
+            )
+        )
     except KeyboardInterrupt:
         click.echo("\nShutdown complete")
 
 
 @cli.command()
 @click.option(
-    "--server", "-s",
+    "--server",
+    "-s",
     default="http://localhost:8420",
     help="Amplifier server URL to check",
 )
 def server_status(server: str):
     """Check amplifier-app-server status."""
     import httpx
-    
+
     try:
         response = httpx.get(f"{server}/health", timeout=5)
         data = response.json()
-        
+
         click.echo(f"\n🖥️  Server Status: {server}")
         click.echo("=" * 50)
-        click.echo(f"Status: {'✅ ' + data['status'] if data['status'] == 'healthy' else '❌ ' + data['status']}")
+        click.echo(
+            f"Status: {'✅ ' + data['status'] if data['status'] == 'healthy' else '❌ ' + data['status']}"
+        )
         click.echo(f"Active sessions: {data.get('sessions', 0)}")
         click.echo(f"Connected devices: {data.get('connected_devices', 0)}")
-        
+
     except httpx.ConnectError:
         click.echo(f"❌ Cannot connect to server at {server}")
         sys.exit(1)
@@ -331,29 +369,31 @@ def debug_winrt():
     """Debug pywinrt API to find correct method names."""
     click.echo("\n🔧 pywinrt API Debug")
     click.echo("=" * 50)
-    
+
     try:
         # Check the whole module
         import winrt.windows.ui.notifications.management as mgmt
+
         click.echo("Module attributes:")
         for attr in sorted(dir(mgmt)):
-            if not attr.startswith('_'):
+            if not attr.startswith("_"):
                 click.echo(f"  - {attr}")
-        
+
         from winrt.windows.ui.notifications.management import (
             UserNotificationListener,
             UserNotificationListenerAccessStatus,
         )
+
         click.echo("\n✅ UserNotificationListener imported successfully")
         click.echo(f"   Type: {type(UserNotificationListener)}")
         click.echo(f"   Repr: {repr(UserNotificationListener)}")
-        
+
         # Check for 'current' property at module level or on class
         click.echo("\n🔬 Looking for 'current' or instance getter...")
-        
-        if hasattr(mgmt, 'current'):
+
+        if hasattr(mgmt, "current"):
             click.echo(f"   mgmt.current exists: {mgmt.current}")
-        
+
         # Check hidden attributes too
         click.echo("\nALL UserNotificationListener attributes (including _):")
         for attr in sorted(dir(UserNotificationListener)):
@@ -362,7 +402,7 @@ def debug_winrt():
                 click.echo(f"  - {attr}: {type(val).__name__} = {repr(val)[:60]}")
             except Exception as e:
                 click.echo(f"  - {attr}: (error: {e})")
-        
+
         # Try _from method - this is often how pywinrt gets singletons
         click.echo("\n🔬 Trying _from method...")
         try:
@@ -370,26 +410,28 @@ def debug_winrt():
             click.echo(f"   _from(None) returned: {instance}, type: {type(instance)}")
         except Exception as e:
             click.echo(f"   _from(None) error: {e}")
-        
+
         try:
             instance = UserNotificationListener._from(0)
             click.echo(f"   _from(0) returned: {instance}, type: {type(instance)}")
         except Exception as e:
             click.echo(f"   _from(0) error: {e}")
-            
+
         # Check the winrt submodule
         click.echo("\n🔬 Checking winrt submodule...")
         try:
             import winrt
+
             click.echo(f"   winrt module: {dir(winrt)[:10]}...")
-            if hasattr(winrt, 'system'):
-                click.echo(f"   winrt.system exists")
+            if hasattr(winrt, "system"):
+                click.echo("   winrt.system exists")
         except Exception as e:
             click.echo(f"   Error: {e}")
-            
+
         # Try running async request_access directly
         click.echo("\n🔬 Trying async call...")
         import asyncio
+
         async def try_access():
             try:
                 # The methods might work on the class directly for static classes
@@ -397,15 +439,16 @@ def debug_winrt():
                 return f"get_access_status(None): {result}"
             except Exception as e:
                 return f"get_access_status(None) error: {e}"
-        
+
         result = asyncio.run(try_access())
         click.echo(f"   {result}")
-                
+
     except ImportError as e:
         click.echo(f"❌ Import failed: {e}")
-    
+
     try:
         from winrt.windows.ui.notifications import KnownNotificationBindings
+
         click.echo("\n✅ KnownNotificationBindings imported successfully")
     except ImportError as e:
         click.echo(f"❌ KnownNotificationBindings import failed: {e}")
@@ -415,38 +458,47 @@ def debug_winrt():
 def check():
     """Check if notification listening is available."""
     import platform
-    
+
     click.echo("\n🔍 System Check")
     click.echo("=" * 50)
-    
+
     # Platform check
     is_windows = platform.system() == "Windows"
     click.echo(f"Platform: {platform.system()} {'✅' if is_windows else '⚠️ (not Windows)'}")
-    
+
     # Check pywinrt
     try:
         from winrt.windows.ui.notifications.management import UserNotificationListener
+
         click.echo("pywinrt: ✅ Available")
         winrt_available = True
     except ImportError:
         click.echo("pywinrt: ❌ Not installed")
-        click.echo("  Install with: pip install winrt-Windows.UI.Notifications winrt-Windows.UI.Notifications.Management")
+        click.echo(
+            "  Install with: pip install winrt-Windows.UI.Notifications winrt-Windows.UI.Notifications.Management"
+        )
         winrt_available = False
-    
+
     # Check if we can create listener
     if winrt_available:
         import asyncio
+
         from attention_firewall.listener import WindowsNotificationListener
-        
+
         queue = asyncio.Queue()
         listener = WindowsNotificationListener(queue)
-        click.echo(f"Notification listener: {'✅ Ready' if listener.is_available else '❌ Not available'}")
-    
+        click.echo(
+            f"Notification listener: {'✅ Ready' if listener.is_available else '❌ Not available'}"
+        )
+
     # Check toast capability
     from attention_firewall.toast import ToastSender
+
     toast = ToastSender()
-    click.echo(f"Toast notifications: {'✅ Ready' if toast.is_available else '⚠️ Mock mode (logged only)'}")
-    
+    click.echo(
+        f"Toast notifications: {'✅ Ready' if toast.is_available else '⚠️ Mock mode (logged only)'}"
+    )
+
     click.echo()
     if is_windows and winrt_available:
         click.echo("✅ System is ready for Attention Firewall!")
