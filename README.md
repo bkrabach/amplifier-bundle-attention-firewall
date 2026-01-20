@@ -173,10 +173,10 @@ For the best experience, run Attention Firewall in **client mode** connected to 
 
 ```bash
 # On your always-on server (Linux/WSL/Mac)
-amplifier-server run --bundle attention-firewall --port 8420
+amplifier-server run --bundle attention-firewall --port 19420
 
 # On your Windows machine(s)
-attention-firewall client --server http://your-server:8420
+attention-firewall client --server http://your-server:19420
 ```
 
 **Benefits of client mode:**

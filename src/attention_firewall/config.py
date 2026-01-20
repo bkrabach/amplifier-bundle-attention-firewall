@@ -13,7 +13,7 @@ class ClientConfig:
 
     def __init__(
         self,
-        server: str = "http://localhost:8420",
+        server: str = "http://localhost:19420",
         device_id: str | None = None,
         api_key: str | None = None,
     ):
@@ -34,7 +34,7 @@ class ClientConfig:
                     data = yaml.safe_load(f)
                     logger.info(f"Loaded config from {config_path}")
                     return cls(
-                        server=data.get("server", "http://localhost:8420"),
+                        server=data.get("server", "http://localhost:19420"),
                         device_id=data.get("device_id"),
                         api_key=data.get("api_key"),
                     )

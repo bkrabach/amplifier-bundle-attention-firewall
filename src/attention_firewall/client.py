@@ -31,7 +31,7 @@ class AttentionFirewallClient:
 
     def __init__(
         self,
-        server_url: str = "http://localhost:8420",
+        server_url: str = "http://localhost:19420",
         device_id: str | None = None,
         device_name: str | None = None,
         api_key: str | None = None,
@@ -300,7 +300,7 @@ class AttentionFirewallClient:
 
 
 async def run_client(
-    server_url: str = "http://localhost:8420",
+    server_url: str = "http://localhost:19420",
     device_id: str | None = None,
     device_name: str | None = None,
     api_key: str | None = None,

@@ -1,6 +1,6 @@
 # Cortex Client Configuration
 # Copy to ~/.cortex/client.yaml (Windows) or ~/.config/cortex/client.yaml (Linux/Mac)
 
-server: http://localhost:8420
+server: http://localhost:19420
 device_id: ALIENWARE-R13  # Optional - defaults to hostname
 api_key: cortex_user123_abc...  # REQUIRED - get from admin UI

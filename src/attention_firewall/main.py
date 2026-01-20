@@ -292,7 +292,7 @@ def client(
     CLI options override config file values.
 
     Example:
-        attention-firewall client --server http://hub.local:8420 --api-key cortex_user123_abc...
+        attention-firewall client --server http://hub.local:19420 --api-key cortex_user123_abc...
     """
     setup_logging(verbose=verbose)
 
@@ -337,7 +337,7 @@ def client(
 @click.option(
     "--server",
     "-s",
-    default="http://localhost:8420",
+    default="http://localhost:19420",
     help="Amplifier server URL to check",
 )
 def server_status(server: str):
