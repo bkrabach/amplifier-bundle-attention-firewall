@@ -6,6 +6,7 @@ import os
 from typing import Any
 
 import httpx
+from amplifier_core.models import ToolResult
 
 logger = logging.getLogger(__name__)
 
@@ -96,34 +97,44 @@ Examples:
             headers["Authorization"] = f"Bearer {self.api_key}"
         return headers
 
-    async def execute(self, **kwargs: Any) -> dict[str, Any]:
+    async def execute(self, input: dict[str, Any]) -> ToolResult:
         """Execute the notifications operation."""
-        operation = kwargs.get("operation")
+        operation = input.get("operation")
 
         try:
             if operation == "list":
-                return await self._list_items(kwargs.get("filters", {}))
+                result = await self._list_items(input.get("filters", {}))
             elif operation == "get":
-                return await self._get_item(kwargs.get("id"))
+                result = await self._get_item(input.get("id"))
             elif operation == "update":
-                return await self._update_item(
-                    kwargs.get("id"), kwargs.get("action"), kwargs.get("feedback")
+                result = await self._update_item(
+                    input.get("id"), input.get("action"), input.get("feedback")
                 )
             elif operation == "bulk_update":
-                return await self._bulk_update(
-                    kwargs.get("ids", []), kwargs.get("action"), kwargs.get("feedback")
+                result = await self._bulk_update(
+                    input.get("ids", []), input.get("action"), input.get("feedback")
                 )
             elif operation == "stats":
-                return await self._get_stats()
+                result = await self._get_stats()
             elif operation == "summary":
-                return await self._get_summary()
+                result = await self._get_summary()
             else:
-                return {"success": False, "error": f"Unknown operation: {operation}"}
+                return ToolResult(
+                    success=False, error={"message": f"Unknown operation: {operation}"}
+                )
+
+            # Convert internal result format to ToolResult
+            if isinstance(result, dict) and result.get("success") is False:
+                return ToolResult(
+                    success=False, error={"message": result.get("error", "Unknown error")}
+                )
+            return ToolResult(success=True, output=result)
+
         except httpx.HTTPError as e:
-            return {"success": False, "error": f"HTTP error: {e}"}
+            return ToolResult(success=False, error={"message": f"HTTP error: {e}"})
         except Exception as e:
             logger.exception("Notifications tool error")
-            return {"success": False, "error": f"Error: {e}"}
+            return ToolResult(success=False, error={"message": f"Error: {e}"})
 
     async def _list_items(self, filters: dict) -> dict[str, Any]:
         """List triage items with optional filters."""
