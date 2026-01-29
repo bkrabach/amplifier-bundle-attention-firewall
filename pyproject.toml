@@ -10,16 +10,8 @@ authors = [
 ]
 
 dependencies = [
-    # Windows notification APIs (Windows-only, optional)
-    # These are only needed when running the Windows client
-    # "winrt-Windows.UI.Notifications",
-    # "winrt-Windows.UI.Notifications.Management",
-    # "winrt-Windows.Foundation",
-    # "winrt-Windows.Foundation.Collections",
-    # "winrt-Windows.ApplicationModel",
-    # "winrt-Windows.Data.Xml.Dom",
-    
-    # Note: amplifier-core/foundation provided by parent package when used as server dependency
+    # HTTP client for tools
+    "httpx>=0.25",
     
     # Scheduling
     "apscheduler>=3.10",
@@ -48,6 +40,10 @@ dev = [
 
 [project.scripts]
 attention-firewall = "attention_firewall.main:main"
+
+[project.entry-points."amplifier.modules"]
+tool-notifications = "attention_firewall.tools.notifications_tool:mount"
+tool-policies = "attention_firewall.tools.policies_tool:mount"
 
 [build-system]
 requires = ["hatchling"]

@@ -416,3 +416,10 @@ def create_tool() -> PoliciesTool:
         server_url=os.environ.get("CORTEX_SERVER_URL", "http://localhost:19420"),
         api_key=os.environ.get("CORTEX_API_KEY"),
     )
+
+
+def mount(coordinator, config: dict | None = None):
+    """Mount function for Amplifier module system."""
+    tool = create_tool()
+    coordinator.register_tool(tool)
+    return tool
