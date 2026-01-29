@@ -418,8 +418,9 @@ def create_tool() -> PoliciesTool:
     )
 
 
-def mount(coordinator, config: dict | None = None):
+async def mount(coordinator, config: dict | None = None):
     """Mount function for Amplifier module system."""
     tool = create_tool()
-    coordinator.register_tool(tool)
+    await coordinator.mount("tools", tool, name=tool.name)
+    logger.info("Mounted PoliciesTool")
     return tool
