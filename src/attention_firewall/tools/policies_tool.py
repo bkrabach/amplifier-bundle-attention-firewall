@@ -431,7 +431,11 @@ def create_tool() -> PoliciesTool:
 
 async def mount(coordinator, config: dict | None = None):
     """Mount function for Amplifier module system."""
-    tool = create_tool()
+    config = config or {}
+    tool = PoliciesTool(
+        server_url=config.get("server_url", os.environ.get("CORTEX_SERVER_URL", "http://localhost:19420")),
+        api_key=config.get("api_key", os.environ.get("CORTEX_API_KEY")),
+    )
     await coordinator.mount("tools", tool, name=tool.name)
     logger.info("Mounted PoliciesTool")
     return tool
