@@ -94,7 +94,7 @@ Examples:
     def _headers(self) -> dict[str, str]:
         headers = {"Content-Type": "application/json"}
         if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
+            headers["X-API-Key"] = self.api_key
         return headers
 
     async def execute(self, input: dict[str, Any]) -> ToolResult:
