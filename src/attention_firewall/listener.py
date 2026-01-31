@@ -25,6 +25,10 @@ class NotificationData:
         timestamp: str,
         sender: str | None = None,
         conversation_hint: str | None = None,
+        app_display_name: str | None = None,
+        app_package_id: str | None = None,
+        conversation_type: str | None = None,
+        conversation_name: str | None = None,
     ):
         self.notification_id = notification_id
         self.app_id = app_id
@@ -33,6 +37,10 @@ class NotificationData:
         self.timestamp = timestamp
         self.sender = sender
         self.conversation_hint = conversation_hint
+        self.app_display_name = app_display_name
+        self.app_package_id = app_package_id
+        self.conversation_type = conversation_type
+        self.conversation_name = conversation_name
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -43,6 +51,10 @@ class NotificationData:
             "timestamp": self.timestamp,
             "sender": self.sender,
             "conversation_hint": self.conversation_hint,
+            "app_display_name": self.app_display_name,
+            "app_package_id": self.app_package_id,
+            "conversation_type": self.conversation_type,
+            "conversation_name": self.conversation_name,
         }
 
 
@@ -128,21 +140,124 @@ class WindowsNotificationListener:
             logger.error(f"Notification access denied: {status}")
             return False
 
+    def _clean_package_name(self, package_id: str) -> str:
+        """Extract a readable name from a package ID.
+
+        Package IDs often look like:
+        - Microsoft.Teams_8wekyb3d8bbwe
+        - WhatsApp_8wekyb3d8bbwe
+        - 5319275A.WhatsAppDesktop_cv1g1gnamgfnp
+
+        Returns a cleaned, human-readable name.
+        """
+        if not package_id:
+            return "Unknown"
+
+        # Remove the package suffix (e.g., _8wekyb3d8bbwe)
+        name = re.sub(r"_[a-z0-9]+$", "", package_id, flags=re.IGNORECASE)
+
+        # Remove publisher prefix (e.g., 5319275A.)
+        name = re.sub(r"^[A-Z0-9]+\.", "", name, flags=re.IGNORECASE)
+
+        # Convert dots and underscores to spaces
+        name = name.replace(".", " ").replace("_", " ")
+
+        # Handle common patterns
+        name = re.sub(r"(?i)desktop$", "", name).strip()
+
+        return name if name else "Unknown"
+
+    def _extract_conversation_context(
+        self, app_id: str, title: str, body: str
+    ) -> tuple[str | None, str | None]:
+        """Extract conversation type and name from notification content.
+
+        Returns:
+            Tuple of (conversation_type, conversation_name)
+            conversation_type: 'direct', 'group', 'channel', or None
+            conversation_name: Name of group/channel, or None
+        """
+        app_lower = app_id.lower()
+
+        # WhatsApp: body starting with "~" indicates group chat
+        # Format: "~GroupName: Message" or just message for direct
+        if "whatsapp" in app_lower:
+            if body and body.startswith("~"):
+                # Extract group name before the colon
+                match = re.match(r"~([^:]+)", body)
+                if match:
+                    return ("group", match.group(1).strip())
+            return ("direct", None)
+
+        # Microsoft Teams patterns
+        if "teams" in app_lower:
+            # Channel: title contains " in " (e.g., "John in General") or starts with "#"
+            if title:
+                if title.startswith("#"):
+                    # Extract channel name
+                    return ("channel", title.lstrip("#").strip())
+                if " in " in title:
+                    # Extract channel/team name after "in"
+                    parts = title.split(" in ", 1)
+                    if len(parts) > 1:
+                        return ("channel", parts[1].strip())
+                # Group chat: title contains comma (multiple people)
+                if "," in title:
+                    return ("group", title)
+            return ("direct", None)
+
+        # Slack patterns
+        if "slack" in app_lower:
+            if title and title.startswith("#"):
+                return ("channel", title.lstrip("#").strip())
+            # DM vs group - harder to detect without more context
+            return ("direct", None)
+
+        # Default: unknown context
+        return (None, None)
+
     def _extract_notification_data(self, notif) -> NotificationData | None:
         """Extract normalized data from a Windows notification object."""
         try:
             KnownBindings = self._winrt["KnownNotificationBindings"]
 
-            # Get app info - some notifications throw E_NOTIMPL when accessing properties
+            # Get app info with fallbacks for better identification
             app_id = "Unknown"
+            app_display_name = None
+            app_package_id = None
+
             if hasattr(notif, "app_info"):
                 try:
-                    if notif.app_info and hasattr(notif.app_info, "display_info"):
-                        app_id = notif.app_info.display_info.display_name
+                    app_info = notif.app_info
+                    if app_info:
+                        # Try display name first (most readable)
+                        if hasattr(app_info, "display_info") and app_info.display_info:
+                            try:
+                                app_display_name = app_info.display_info.display_name
+                                app_id = app_display_name
+                            except (AttributeError, OSError):
+                                pass
+
+                        # Get package family name for identification
+                        if hasattr(app_info, "package_family_name"):
+                            try:
+                                app_package_id = app_info.package_family_name
+                                if not app_display_name:
+                                    app_id = self._clean_package_name(app_package_id)
+                            except (AttributeError, OSError):
+                                pass
+
+                        # Fallback to app_user_model_id
+                        if app_id == "Unknown" and hasattr(app_info, "app_user_model_id"):
+                            try:
+                                aumid = app_info.app_user_model_id
+                                if aumid:
+                                    app_id = self._clean_package_name(aumid)
+                            except (AttributeError, OSError):
+                                pass
                 except (AttributeError, OSError) as e:
                     # OSError -2147467263 = E_NOTIMPL (not implemented)
                     logger.debug(f"Could not get app_info: {e}")
-                    pass
 
             # Skip our own notifications (prevent feedback loop)
             if app_id in ("Cortex", "Attention Firewall"):
@@ -212,6 +327,11 @@ class WindowsNotificationListener:
             # Try to extract sender (heuristic: first line of title often has sender)
             sender = self._extract_sender(app_id, title, body)
 
+            # Extract conversation context (type and name)
+            conversation_type, conversation_name = self._extract_conversation_context(
+                app_id, title, body
+            )
+
             return NotificationData(
                 notification_id=str(notif.id) if hasattr(notif, "id") else str(id(notif)),
                 app_id=app_id,
@@ -219,6 +339,10 @@ class WindowsNotificationListener:
                 body=body,
                 timestamp=timestamp,
                 sender=sender,
+                app_display_name=app_display_name,
+                app_package_id=app_package_id,
+                conversation_type=conversation_type,
+                conversation_name=conversation_name,
             )
 
         except OSError as e:
