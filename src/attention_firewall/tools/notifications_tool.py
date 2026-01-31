@@ -262,9 +262,13 @@ Examples:
 
     async def _get_stats(self) -> dict[str, Any]:
         """Get notification statistics."""
+        headers = self._headers()
+        api_status = "SET" if self.api_key else "NOT SET"
+        has_auth = "Authorization" in headers
+        logger.info(f"_get_stats: api_key={api_status}, has_auth={has_auth}")
         response = await self._client.get(
             f"{self.server_url}/triage/items",
-            headers=self._headers(),
+            headers=headers,
         )
         response.raise_for_status()
         data = response.json()
@@ -331,10 +335,12 @@ def create_tool() -> NotificationsTool:
 async def mount(coordinator, config: dict | None = None):
     """Mount function for Amplifier module system."""
     config = config or {}
-    tool = NotificationsTool(
-        server_url=config.get("server_url", os.environ.get("CORTEX_SERVER_URL", "http://localhost:19420")),
-        api_key=config.get("api_key", os.environ.get("CORTEX_API_KEY")),
+    server_url = config.get(
+        "server_url", os.environ.get("CORTEX_SERVER_URL", "http://localhost:19420")
     )
+    api_key = config.get("api_key", os.environ.get("CORTEX_API_KEY"))
+    logger.info(f"NotificationsTool mount: api_key={'SET' if api_key else 'NOT SET'}")
+    tool = NotificationsTool(server_url=server_url, api_key=api_key)
     await coordinator.mount("tools", tool, name=tool.name)
     logger.info("Mounted NotificationsTool")
     return tool
