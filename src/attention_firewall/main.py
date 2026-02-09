@@ -506,6 +506,145 @@ def check():
         click.echo("⚠️ Some features may not work. See messages above.")
 
 
+@cli.group()
+def startup():
+    """Manage auto-start on Windows login."""
+    pass
+
+
+@startup.command("install")
+@click.option(
+    "--server",
+    "-s",
+    default=None,
+    help="Cortex server URL (e.g., http://192.168.1.100:19420)",
+)
+@click.option(
+    "--config",
+    "-c",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Path to client.yaml config file",
+)
+@click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging")
+def startup_install(server: str | None, config: Path | None, verbose: bool):
+    """Install Attention Firewall to run automatically at Windows login.
+
+    This creates a Windows Task Scheduler task that starts the client
+    when you log in. The client runs in the background (no console window).
+
+    Examples:
+
+        # Install using config file
+        attention-firewall startup install --config ~/.cortex/client.yaml
+
+        # Install with explicit server URL
+        attention-firewall startup install --server http://192.168.1.100:19420
+    """
+    from attention_firewall import startup as startup_module
+
+    if startup_module.install(server_url=server, config_path=config, verbose=verbose):
+        click.echo("✅ Installed! Attention Firewall will start automatically at login.")
+        click.echo()
+        click.echo("To start it now without logging out:")
+        click.echo("  attention-firewall startup start")
+        click.echo()
+        click.echo("To check status:")
+        click.echo("  attention-firewall startup status")
+    else:
+        click.echo("❌ Installation failed. See errors above.")
+        sys.exit(1)
+
+
+@startup.command("uninstall")
+def startup_uninstall():
+    """Remove Attention Firewall from Windows startup.
+
+    This removes the Task Scheduler task. The client will no longer
+    start automatically at login.
+    """
+    from attention_firewall import startup as startup_module
+
+    if startup_module.uninstall():
+        click.echo("✅ Uninstalled. Attention Firewall will no longer start at login.")
+    else:
+        click.echo("❌ Uninstallation failed. See errors above.")
+        sys.exit(1)
+
+
+@startup.command("status")
+def startup_status():
+    """Check if Attention Firewall is installed for auto-start."""
+    from attention_firewall import startup as startup_module
+
+    status = startup_module.get_task_status()
+
+    if not status.get("installed"):
+        click.echo("❌ Not installed for auto-start")
+        click.echo()
+        click.echo("To install:")
+        click.echo("  attention-firewall startup install --config ~/.cortex/client.yaml")
+        return
+
+    click.echo("✅ Installed for auto-start")
+    click.echo()
+
+    if status.get("status"):
+        click.echo(f"Status: {status['status']}")
+    if status.get("last_run_time"):
+        click.echo(f"Last run: {status['last_run_time']}")
+    if status.get("last_result"):
+        result = status["last_result"]
+        if result == "0":
+            click.echo("Last result: Success")
+        else:
+            click.echo(f"Last result: {result}")
+
+
+@startup.command("start")
+def startup_start():
+    """Start the background client now (without waiting for login)."""
+    from attention_firewall import startup as startup_module
+
+    if not startup_module.is_installed():
+        click.echo("❌ Not installed. Run 'attention-firewall startup install' first.")
+        sys.exit(1)
+
+    if startup_module.start_now():
+        click.echo("✅ Started Attention Firewall in background")
+    else:
+        click.echo("❌ Failed to start. See errors above.")
+        sys.exit(1)
+
+
+@startup.command("stop")
+def startup_stop():
+    """Stop the background client."""
+    from attention_firewall import startup as startup_module
+
+    if startup_module.stop():
+        click.echo("✅ Stopped Attention Firewall")
+    else:
+        click.echo("❌ Failed to stop. See errors above.")
+        sys.exit(1)
+
+
+@startup.command("restart")
+def startup_restart():
+    """Restart the background client (useful after pulling updates)."""
+    from attention_firewall import startup as startup_module
+
+    click.echo("Stopping...")
+    startup_module.stop()
+
+    click.echo("Starting...")
+    if startup_module.start_now():
+        click.echo("✅ Restarted Attention Firewall")
+    else:
+        click.echo("❌ Failed to restart. See errors above.")
+        sys.exit(1)
+
+
 def main():
     """Main entry point."""
     cli()
