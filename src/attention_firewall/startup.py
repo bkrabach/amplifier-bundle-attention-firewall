@@ -118,8 +118,8 @@ def install(
 
     # Create the scheduled task
     # /SC ONLOGON - Run when user logs in
-    # /RL HIGHEST - Run with highest privileges (needed for notification access)
     # /F - Force create (overwrite if exists)
+    # Note: Don't use /RL HIGHEST - requires admin to create the task
     try:
         result = subprocess.run(
             [
@@ -131,8 +131,6 @@ def install(
                 command,
                 "/SC",
                 "ONLOGON",
-                "/RL",
-                "HIGHEST",
                 "/F",
             ],
             capture_output=True,
