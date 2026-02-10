@@ -109,22 +109,26 @@ def install(
     if verbose:
         cmd_args.append("--verbose")
 
-    # Create a launcher batch file - more reliable for Task Scheduler
-    # than trying to pass complex commands via schtasks
+    # Create a VBScript launcher - runs completely hidden (no window at all)
+    # Batch files show a cmd window; VBScript with WshShell.Run 0 doesn't
     launcher_dir = Path.home() / ".cortex"
     launcher_dir.mkdir(parents=True, exist_ok=True)
-    launcher_path = launcher_dir / "cortex-client.bat"
+    launcher_path = launcher_dir / "cortex-client.vbs"
 
-    # Write the batch file
-    batch_content = f'''@echo off
-cd /d "{pythonw.parent.parent}"
-"{pythonw}" {" ".join(cmd_args)}
+    # Build the full command (escape quotes for VBS)
+    full_cmd = f'"{pythonw}" {" ".join(cmd_args)}'
+    full_cmd_escaped = full_cmd.replace('"', '""')
+
+    # Write the VBScript - WshShell.Run with 0 = hidden window
+    vbs_content = f'''Set WshShell = CreateObject("WScript.Shell")
+WshShell.CurrentDirectory = "{pythonw.parent.parent}"
+WshShell.Run "{full_cmd_escaped}", 0, False
 '''
-    launcher_path.write_text(batch_content)
+    launcher_path.write_text(vbs_content)
     logger.info(f"Created launcher: {launcher_path}")
 
-    # Use the batch file as the command
-    command = f'"{launcher_path}"'
+    # Use wscript to run the VBS (wscript is windowless)
+    command = f'wscript.exe "{launcher_path}"'
 
     # Remove existing task if present
     if is_installed():
