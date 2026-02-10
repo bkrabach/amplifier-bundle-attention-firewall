@@ -152,7 +152,9 @@ $notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNoti
 $notifier.Show($toast)
 """
 
-        # Run PowerShell
+        # Run PowerShell (hidden - no console window)
+        # CREATE_NO_WINDOW flag prevents the PowerShell window from flashing
+        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         result = subprocess.run(
             [
                 "powershell",
@@ -165,6 +167,7 @@ $notifier.Show($toast)
             capture_output=True,
             text=True,
             timeout=10,
+            creationflags=creationflags,
         )
 
         if result.returncode != 0:
