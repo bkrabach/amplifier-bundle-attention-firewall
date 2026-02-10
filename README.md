@@ -167,6 +167,50 @@ global:
 | `remove-vip <name>` | Remove sender from VIP list |
 | `test` | Send a test notification |
 
+### Startup Commands (Auto-Run at Login)
+
+| Command | Description |
+|---------|-------------|
+| `startup install` | Install to run automatically at Windows login |
+| `startup uninstall` | Remove from Windows startup |
+| `startup status` | Check if installed and last run status |
+| `startup start` | Start the background client now |
+| `startup stop` | Stop the background client |
+| `startup restart` | Restart after pulling updates |
+
+**Note:** `startup install` requires an **Administrator command prompt**.
+
+#### Setup Auto-Start
+
+```powershell
+# 1. Create config file
+mkdir ~/.cortex
+echo "server: http://your-server:19420" > ~/.cortex/client.yaml
+echo "device_id: MY-PC" >> ~/.cortex/client.yaml
+echo "api_key: your-api-key" >> ~/.cortex/client.yaml
+
+# 2. Install (run as Administrator)
+attention-firewall startup install --config ~/.cortex/client.yaml
+
+# 3. Start now (or just log out and back in)
+attention-firewall startup start
+
+# 4. Verify it's running
+attention-firewall startup status
+```
+
+#### Debugging Auto-Start Issues
+
+If `startup start` succeeds but client doesn't connect:
+
+```powershell
+# Check task status
+schtasks /Query /TN CortexAttentionFirewall /V
+
+# Run manually to see errors (with console output)
+attention-firewall client --config ~/.cortex/client.yaml --verbose
+```
+
 ## Client Mode (Recommended)
 
 For the best experience, run Attention Firewall in **client mode** connected to an [amplifier-app-server](https://github.com/bkrabach/amplifier-app-server):
