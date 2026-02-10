@@ -95,35 +95,36 @@ def install(
         logger.error("Could not find Python executable")
         return False
 
-    # Get the package directory (where attention_firewall is installed)
-    # This ensures the task runs from the right directory
-    package_dir = Path(__file__).parent.parent.parent  # src -> attention_firewall -> startup.py
-
-    # Use cmd /c to set working directory before running
-    # This ensures Python can find the module even without PYTHONPATH
-    cmd_parts = [
-        "cmd",
-        "/c",
-        f"cd /d {package_dir} &&",
-        str(pythonw),
-        "-m",
-        "attention_firewall",
-        "client",
-    ]
+    # Build command arguments
+    cmd_args = ["-m", "attention_firewall", "client"]
 
     if server_url:
-        cmd_parts.extend(["--server", server_url])
+        cmd_args.extend(["--server", server_url])
 
     if config_path:
-        cmd_parts.extend(["--config", str(config_path)])
+        cmd_args.extend(["--config", str(config_path)])
     elif get_client_config_path().exists():
-        cmd_parts.extend(["--config", str(get_client_config_path())])
+        cmd_args.extend(["--config", str(get_client_config_path())])
 
     if verbose:
-        cmd_parts.append("--verbose")
+        cmd_args.append("--verbose")
 
-    # Join into a single command string
-    command = " ".join(cmd_parts)
+    # Create a launcher batch file - more reliable for Task Scheduler
+    # than trying to pass complex commands via schtasks
+    launcher_dir = Path.home() / ".cortex"
+    launcher_dir.mkdir(parents=True, exist_ok=True)
+    launcher_path = launcher_dir / "cortex-client.bat"
+
+    # Write the batch file
+    batch_content = f'''@echo off
+cd /d "{pythonw.parent.parent}"
+"{pythonw}" {" ".join(cmd_args)}
+'''
+    launcher_path.write_text(batch_content)
+    logger.info(f"Created launcher: {launcher_path}")
+
+    # Use the batch file as the command
+    command = f'"{launcher_path}"'
 
     # Remove existing task if present
     if is_installed():
