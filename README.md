@@ -19,25 +19,53 @@ Attention Firewall intercepts Windows notifications from apps like Teams, WhatsA
 - **Python 3.11+**
 - Notifications enabled in Windows Settings for target apps
 
-## Quick Start
+## Quick Start (Fresh Windows Install)
 
-### 1. Install
+### 1. Prerequisites
 
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/attention-firewall.git
-cd attention-firewall
+- **Python 3.11+** (from [python.org](https://python.org) or Microsoft Store)
+- **uv** package manager: `pip install uv`
+- **Git** for cloning the repo
 
-# Install with uv (recommended)
+### 2. Clone and install
+
+```powershell
+cd C:\Users\%USERNAME%\repos
+git clone https://github.com/bkrabach/amplifier-bundle-attention-firewall.git
+cd amplifier-bundle-attention-firewall
+
+# Create virtual environment and install
+uv venv
+.venv\Scripts\activate
 uv pip install -e .
 
-# Or with pip
-pip install -e .
+# Install Windows notification listener (REQUIRED for real notifications)
+uv pip install winrt-Windows.UI.Notifications winrt-Windows.UI.Notifications.Management
 ```
 
-### 2. Configure Windows
+Without the `winrt-*` packages, the client runs in **mock mode** and won't capture real notifications.
 
-For the system to work, you need to disable notification banners for apps you want to filter (while keeping notifications enabled):
+### 3. Create client config
+
+The client needs to know where your Cortex server is and how to authenticate:
+
+```powershell
+mkdir %USERPROFILE%\.cortex
+notepad %USERPROFILE%\.cortex\client.yaml
+```
+
+Add this content (replace values with your own):
+```yaml
+server: http://your-server:19420
+device_id: MY-PC-NAME
+api_key: your-api-key-here
+```
+
+**To get an API key:** Log into the Cortex web UI at `http://your-server:19420` → Login → Profile → Generate API Key.
+
+### 4. Configure Windows notifications
+
+For Cortex to manage your notifications, disable native banners while keeping notification capture enabled:
 
 1. Open **Settings → System → Notifications**
 2. For each app (Teams, WhatsApp, Outlook):
@@ -45,24 +73,44 @@ For the system to work, you need to disable notification banners for apps you wa
    - Turn **OFF** "Show notification banners"
    - Keep **ON** "Show notifications in notification center"
 
-This allows Attention Firewall to capture notifications without you seeing the native popups.
+This allows Attention Firewall to capture notifications without you seeing the native popups. Cortex will re-surface important ones as its own branded notifications.
 
-### 3. Run
+### 5. Test the connection
 
-```bash
-# Check if your system is ready
-attention-firewall check
-
-# Run the daemon
-attention-firewall run
-
-# Run with custom config
-attention-firewall run --config my-policy.yaml
+```powershell
+attention-firewall client --config %USERPROFILE%\.cortex\client.yaml --verbose
 ```
 
-### 4. Manage Policies
+You should see:
+- `Server online` - connection to server works
+- `WebSocket connected` - real-time push channel established
+- `Notification listener started` (NOT "Mock notification listener") - real capture active
 
-```bash
+Press Ctrl+C to stop after verifying.
+
+### 6. Install as auto-start service
+
+So the client runs automatically at Windows login:
+
+```powershell
+# Open an ADMINISTRATOR PowerShell (right-click → Run as Administrator)
+cd C:\Users\%USERNAME%\repos\amplifier-bundle-attention-firewall
+.venv\Scripts\activate
+attention-firewall startup install --config %USERPROFILE%\.cortex\client.yaml
+```
+
+Then back in a **normal** terminal:
+```powershell
+# Start it now
+attention-firewall startup start
+
+# Verify it's running
+attention-firewall startup status
+```
+
+### 7. Manage Policies
+
+```powershell
 # Add a VIP (their messages always get through)
 attention-firewall add-vip "Alice Chen"
 
