@@ -38,12 +38,9 @@ cd amplifier-bundle-attention-firewall
 uv venv
 .venv\Scripts\activate
 uv pip install -e .
-
-# Install Windows notification listener (REQUIRED for real notifications)
-uv pip install winrt-Windows.UI.Notifications winrt-Windows.UI.Notifications.Management
 ```
 
-Without the `winrt-*` packages, the client runs in **mock mode** and won't capture real notifications.
+On Windows, this automatically installs all required `winrt-*` packages for notification capture. On other platforms, the client runs in mock mode (for development/testing).
 
 ### 3. Create client config
 

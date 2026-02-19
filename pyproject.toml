@@ -26,8 +26,18 @@ dependencies = [
     "click>=8.0",
     
     # Client mode (connect to amplifier-app-server)
-    "httpx>=0.25",
     "websockets>=12.0",
+    
+    # Windows notification listener (winrt)
+    # These are platform-specific and only install on Windows
+    'winrt-runtime>=3.0; sys_platform == "win32"',
+    'winrt-Windows.Foundation>=3.0; sys_platform == "win32"',
+    'winrt-Windows.Foundation.Collections>=3.0; sys_platform == "win32"',
+    'winrt-Windows.ApplicationModel>=3.0; sys_platform == "win32"',
+    'winrt-Windows.UI>=3.0; sys_platform == "win32"',
+    'winrt-Windows.UI.Notifications>=3.0; sys_platform == "win32"',
+    'winrt-Windows.UI.Notifications.Management>=3.0; sys_platform == "win32"',
+    'winrt-Windows.Data.Xml.Dom>=3.0; sys_platform == "win32"',
 ]
 
 [project.optional-dependencies]
